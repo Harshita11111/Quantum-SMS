@@ -29,3 +29,28 @@ cd Quantum-SMS
 ```bash
 python -m venv .venv
 ```
+
+### 4️⃣ Upgrade pip
+```bash
+python -m pip install --upgrade pip
+```
+
+### 5️⃣ Install Dependencies
+```bash
+pip install cryptography
+```
+
+### ▶️ Run Self-Test
+```bash
+python aes_utils.py
+
+```
+
+### Expected Output:
+``` swift
+Running aes_utils self-test...
+Derived key (base64): <some-key>
+Nonce (b64): <some-nonce>
+Ciphertext+Tag (b64): <some-cipher>
+Self-test passed — plaintext successfully recovered.
+```
