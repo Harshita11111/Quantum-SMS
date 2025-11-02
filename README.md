@@ -1,3 +1,26 @@
-# Quantum-SMS
+# 🔐 AES Utils — Quantum Secure Messaging System (QSMS)
 
-# Now This will works Properly
+## 📘 Overview
+`aes_utils.py` is a Python utility module for **AES-GCM encryption and decryption**.  
+It’s a part of the **Quantum Secure Messaging System (QSMS)** project — providing secure message encryption using AES-GCM with keys derived from quantum-safe secrets (like Kyber KEM output).
+
+This script also includes a built-in **self-test** to verify that the encryption and decryption processes work correctly.
+
+---
+
+## 🧩 Features
+- AES-GCM encryption & decryption  
+- Key derivation using HKDF (HMAC-based Key Derivation Function)  
+- Support for Additional Authenticated Data (AAD)  
+- Secure random nonce generation  
+- Built-in self-test mode for verification  
+- Easy to integrate with larger systems like QSMS  
+
+---
+
+## 🛠️ Installation Guide
+
+### 1️⃣ Clone or Download the Project
+```bash
+git clone https://github.com/<your-username>/Quantum-SMS.git
+cd Quantum-SMS
