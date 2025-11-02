@@ -24,3 +24,8 @@ This script also includes a built-in **self-test** to verify that the encryption
 ```bash
 git clone https://github.com/<your-username>/Quantum-SMS.git
 cd Quantum-SMS
+```
+### 2️⃣ Create a Virtual Environment
+```bash
+python -m venv .venv
+```
