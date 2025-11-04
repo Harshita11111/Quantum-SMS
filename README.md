@@ -1,2 +1,2 @@
 # Quantum-SMS
-my name is khan
+This file will added with work in near future
