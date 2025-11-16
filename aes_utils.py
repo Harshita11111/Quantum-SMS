@@ -1,3 +1,4 @@
+
 """aes_utils.py
 
 Utility functions for AES authenticated encryption using AES-GCM,
@@ -17,7 +18,7 @@ API:
 
 Includes a small self-test when run as __main__.
 """
-from __future__ import annotations
+from __future__ import annotations          #This line makes Python treat type hints as strings (not as actual evaluated objects at runtime).
 
 import os
 from typing import Optional, Dict
