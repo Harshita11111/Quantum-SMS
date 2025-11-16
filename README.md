@@ -54,3 +54,27 @@ Nonce (b64): <some-nonce>
 Ciphertext+Tag (b64): <some-cipher>
 Self-test passed — plaintext successfully recovered.
 ```
+
+## 🚀 QSMS Integration — run_integration.py
+🛠️ Installation & Setup
+
+1. 
+```bash
+python -m ensurepip --default-pip
+```
+2. (Optional) 
+```bash
+python -m pip install --upgrade pip setuptools wheel
+```
+3. 
+```bash
+python -m pip install cryptography
+```
+4. 
+```bash
+python -c "from cryptography.hazmat.primitives.ciphers.aead import AESGCM; print('cryptography OK')"
+```
+### ▶️ Run Self-Test
+```bash
+python .\run_integration.py
+```
