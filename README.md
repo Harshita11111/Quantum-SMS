@@ -58,6 +58,25 @@ Self-test passed — plaintext successfully recovered.
 ## 🚀 QSMS Integration — run_integration.py
 🛠️ Installation & Setup
 
+### Structure
+```cpp
+Quantum-SMS/
+│
+├── qsms/
+│   ├── __init__.py
+│   ├── aes_utils.py          # AES-GCM encryption/decryption utilities
+│   ├── crypto_manager.py     # High-level crypto orchestration (Kyber + AES)
+│   ├── hash_utils.py         # HKDF / SHA256 helpers
+│   ├── kyber_utils.py        # Kyber key generation & encapsulation
+│   └── __pycache__/          # Auto-generated Python cache files
+│
+├── Scripts/                  # (Optional) Extra scripts or CLI tools
+│
+├── run_integration.py        # Main end-to-end QSMS demo script
+│
+└── README.md                 # Project documentation
+```
+
 1. 
 ```bash
 python -m ensurepip --default-pip
