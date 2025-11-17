@@ -1,4 +1,3 @@
-
 """
 kyber_utils.py — Utilities for Quantum Secure Message System (QSMS)
 
@@ -23,7 +22,6 @@ import os
 import socket
 import struct
 from dataclasses import dataclass
-from typing import Tuple
 
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
@@ -63,6 +61,12 @@ class CryptoError(KyberUtilsError):
     """Raised on cryptographic misuse or verification failures."""
 
 
+# ========= Internal helpers =========
+
+def _is_bytes_like(x) -> bool:
+    return isinstance(x, (bytes, bytearray, memoryview))
+
+
 # ========= Framing helpers =========
 
 def send_frame(conn: socket.socket, payload: bytes) -> None:
@@ -71,13 +75,13 @@ def send_frame(conn: socket.socket, payload: bytes) -> None:
 
     Frame format: 4-byte big-endian length || payload
     """
-    if not isinstance(payload, (bytes, bytearray, memoryview)):
+    if not _is_bytes_like(payload):
         raise TypeError("payload must be bytes-like")
     length = len(payload)
     if length > MAX_FRAME:
         raise FrameTooLargeError(f"payload too large ({length} > {MAX_FRAME})")
     header = struct.pack("!I", length)
-    conn.sendall(header + payload)
+    conn.sendall(header + bytes(payload))
 
 
 def recv_frame(conn: socket.socket) -> bytes:
@@ -120,17 +124,16 @@ def hkdf_expand_256(master: bytes, *, salt: bytes, info: bytes) -> bytes:
 
     Args:
         master: Input keying material (IKM), e.g., Kyber shared secret.
-        salt: HKDF salt (should be public, per-session).
+        salt: HKDF salt (public, per-session).
         info: Context string to separate keys/usages.
 
     Returns:
         32-byte key.
     """
-    if not (isinstance(master, (bytes, bytearray)) and
-            isinstance(salt, (bytes, bytearray)) and
-            isinstance(info, (bytes, bytearray))):
+    if not (_is_bytes_like(master) and _is_bytes_like(salt) and _is_bytes_like(info)):
         raise TypeError("master, salt, and info must be bytes-like")
-    return HKDF(master=master, key_len=32, salt=salt, hashmod=SHA256, context=info)
+    return HKDF(master=bytes(master), key_len=32, salt=bytes(salt),
+                hashmod=SHA256, context=bytes(info))
 
 
 @dataclass(frozen=True)
@@ -168,11 +171,11 @@ class QSMSKeySchedule:
     @staticmethod
     def derive(public_key: bytes, ct: bytes, shared_secret: bytes,
                *, info_base: bytes = PROTOCOL_INFO) -> KeySchedule:
-        if not all(isinstance(x, (bytes, bytearray)) for x in (public_key, ct, shared_secret)):
+        if not all(_is_bytes_like(x) for x in (public_key, ct, shared_secret)):
             raise TypeError("public_key, ct, and shared_secret must be bytes-like")
 
         # Bind everything to the handshake transcript
-        salt = SHA256.new(public_key + ct).digest()
+        salt = SHA256.new(bytes(public_key) + bytes(ct)).digest()
         aad = salt  # Using the salt as AAD is compact and avoids recompute
 
         key_s2c = hkdf_expand_256(shared_secret, salt=salt, info=info_base + b"|s2c")
@@ -188,24 +191,28 @@ def encrypt_gcm(key: bytes, aad: bytes, plaintext: bytes) -> bytes:
     Encrypt with AES-GCM and return (nonce || ciphertext || tag).
 
     Args:
-        key: 32-byte AES key.
+        key: 32-byte AES key (AES-256).
         aad: associated data (must be identical on decrypt).
         plaintext: bytes to encrypt.
 
     Returns:
         Concatenated blob: nonce(12) || ciphertext || tag(16)
+
+    Notes:
+        • Never reuse a (key, nonce) pair.
+        • AAD is authenticated but not encrypted; in QSMS we use SHA256(pk||ct).
     """
-    if not isinstance(plaintext, (bytes, bytearray)):
+    if not _is_bytes_like(plaintext):
         raise TypeError("plaintext must be bytes-like")
-    if not (isinstance(key, (bytes, bytearray)) and len(key) == 32):
+    if not (_is_bytes_like(key) and len(key) == 32):
         raise CryptoError("AES-GCM requires a 32-byte key")
-    if not isinstance(aad, (bytes, bytearray)):
+    if not _is_bytes_like(aad):
         raise TypeError("aad must be bytes-like")
 
     nonce = os.urandom(GCM_NONCE_BYTES)
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    cipher.update(aad)
-    ciphertext, tag = cipher.encrypt_and_digest(plaintext)
+    cipher = AES.new(bytes(key), AES.MODE_GCM, nonce=nonce)
+    cipher.update(bytes(aad))
+    ciphertext, tag = cipher.encrypt_and_digest(bytes(plaintext))
     return nonce + ciphertext + tag
 
 
@@ -224,22 +231,22 @@ def decrypt_gcm(key: bytes, aad: bytes, blob: bytes) -> bytes:
     Raises:
         CryptoError: on malformed input or authentication failure.
     """
-    if not (isinstance(key, (bytes, bytearray)) and len(key) == 32):
+    if not (_is_bytes_like(key) and len(key) == 32):
         raise CryptoError("AES-GCM requires a 32-byte key")
-    if not isinstance(aad, (bytes, bytearray)):
+    if not _is_bytes_like(aad):
         raise TypeError("aad must be bytes-like")
-    if not isinstance(blob, (bytes, bytearray)):
+    if not _is_bytes_like(blob):
         raise TypeError("blob must be bytes-like")
 
     if len(blob) < GCM_NONCE_BYTES + GCM_TAG_BYTES:
         raise CryptoError("ciphertext too short")
 
-    nonce = blob[:GCM_NONCE_BYTES]
-    tag = blob[-GCM_TAG_BYTES:]
-    ciphertext = blob[GCM_NONCE_BYTES:-GCM_TAG_BYTES]
+    nonce = bytes(blob[:GCM_NONCE_BYTES])
+    tag = bytes(blob[-GCM_TAG_BYTES:])
+    ciphertext = bytes(blob[GCM_NONCE_BYTES:-GCM_TAG_BYTES])
 
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    cipher.update(aad)
+    cipher = AES.new(bytes(key), AES.MODE_GCM, nonce=nonce)
+    cipher.update(bytes(aad))
     try:
         return cipher.decrypt_and_verify(ciphertext, tag)
     except ValueError as e:
@@ -254,7 +261,7 @@ def safe_utf8_decode(data: bytes) -> str:
     Decode as UTF-8, replacing invalid sequences (never raises).
     Useful for logging/demo messages from untrusted peers.
     """
-    if not isinstance(data, (bytes, bytearray)):
+    if not _is_bytes_like(data):
         raise TypeError("data must be bytes-like")
     return bytes(data).decode("utf-8", errors="replace")
 

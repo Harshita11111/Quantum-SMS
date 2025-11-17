@@ -3,8 +3,16 @@ crypto_manager.py
 ------------------
 High-level cryptography manager for Quantum-Safe Messaging System.
 
-This file is robust to small API differences between liboqs-python versions.
-It uses the AES helpers from aes_utils.py:
+Now integrates the key-exchange binding from kyber_utils:
+  - After encapsulation/decapsulation we derive a directional key schedule via
+      QSMSKeySchedule.derive(server_public_key, kem_ciphertext, shared_secret)
+    which yields:
+      * key_c2s (client -> server)   AES-256 key
+      * key_s2c (server -> client)   AES-256 key
+      * aad  = SHA256(pk || ct)      AAD to bind app data to the handshake
+
+This file remains robust to small API differences between liboqs-python versions.
+It uses AES helpers from aes_utils:
   - derive_key_from_shared_secret(shared_secret, salt=None, info=None, length=32)
   - encrypt_aes_gcm(plaintext, key, associated_data=None, nonce=None) -> {'nonce','ciphertext'}
   - decrypt_aes_gcm(nonce, ciphertext, key, associated_data=None) -> plaintext
@@ -27,8 +35,9 @@ except Exception:
     _HAS_OQS = False
     _OQS_HAS_KEYENCAP = False
 
-# Local package imports (package-relative)
+# Local package imports (package-relative). If your files are flat, drop the leading dot.
 from .aes_utils import encrypt_aes_gcm, decrypt_aes_gcm, derive_key_from_shared_secret
+from .kyber_utils import QSMSKeySchedule
 
 
 # --- Simple KEM stub for local integration testing ONLY ---
@@ -81,7 +90,6 @@ def _create_kem_instance(algorithm: str = "Kyber512"):
             warnings.warn("oqs.KeyEncapsulation exists but failed to instantiate — using test stub instead")
             return _StubKEM(algorithm)
     else:
-        # If oqs is present but doesn't have KeyEncapsulation, warn and use stub.
         if _HAS_OQS and not _OQS_HAS_KEYENCAP:
             warnings.warn("oqs module installed but missing KeyEncapsulation; using test KEM stub for integration tests.")
         else:
@@ -90,13 +98,40 @@ def _create_kem_instance(algorithm: str = "Kyber512"):
 
 
 class CryptoManager:
+    """
+    High-level façade around the KEM+AES flow.
+
+    After a successful handshake:
+      - self.role in {"client","server"}
+      - self.key_c2s (AES-256): key to decrypt messages coming client->server
+      - self.key_s2c (AES-256): key to decrypt messages coming server->client
+      - self.aad: AAD to use for AES-GCM (SHA256(pk||ct))
+
+    For convenience, encrypt()/decrypt() choose the appropriate key automatically
+    given the current role:
+      - role == "client": encrypt() uses key_c2s, decrypt() uses key_s2c
+      - role == "server": encrypt() uses key_s2c, decrypt() uses key_c2s
+    """
+
     def __init__(self, algorithm: str = "Kyber512"):
         self.algorithm = algorithm
         # Server-side KEM object (either real oqs.KeyEncapsulation or test stub)
         self.kem = _create_kem_instance(self.algorithm)
+
+        # KEM artifacts
         self.public_key: Optional[bytes] = None
         self.shared_secret: Optional[bytes] = None
+
+        # Directional AES keys and AAD (set after handshake)
+        self.key_c2s: Optional[bytes] = None
+        self.key_s2c: Optional[bytes] = None
+        self.aad: Optional[bytes] = None
+
+        # Back-compat single AES key (set in earlier versions)
         self.aes_key: Optional[bytes] = None
+
+        # role: "client" after encapsulate(), "server" after decapsulate()
+        self.role: Optional[str] = None
 
     # ---------------- Key generation (server/receiver) ----------------
     def generate_keys(self) -> bytes:
@@ -104,17 +139,14 @@ class CryptoManager:
         Generate a keypair and return the public key bytes.
         Many oqs.KeyEncapsulation instances expose generate_keypair() -> public_key
         """
-        # prefer instance method if present
         if hasattr(self.kem, "generate_keypair"):
             pk = self.kem.generate_keypair()
         else:
-            # try module-level helper if available
             gen = getattr(oqs, "generate_keypair", None)
             if gen is not None:
-                pk, sk = gen(self.algorithm)
+                pk, _sk = gen(self.algorithm)
             else:
                 raise RuntimeError("No generate_keypair method found in oqs binding")
-            pk = pk
         self.public_key = pk
         return pk
 
@@ -123,14 +155,9 @@ class CryptoManager:
         """
         Client-side: encapsulate to receiver_public_key.
         Returns (kem_ciphertext, shared_secret).
-        Uses a fresh KeyEncapsulation instance for the sender so secret isn't required to be exported.
+        Also derives directional AES keys and AAD bound to the transcript.
         """
-        # Attempt to use real oqs.KeyEncapsulation style if available
-        if _HAS_OQS and _OQS_HAS_KEYENCAP:
-            client_kem = _create_kem_instance(self.algorithm)
-        else:
-            # use a fresh stub instance for the client role
-            client_kem = _create_kem_instance(self.algorithm)
+        client_kem = _create_kem_instance(self.algorithm)
 
         # Try several method names commonly used by oqs bindings
         method_candidates = ("encap_secret", "encapsulate", "encap", "encapsulate_secret")
@@ -138,82 +165,127 @@ class CryptoManager:
             if hasattr(client_kem, name):
                 method = getattr(client_kem, name)
                 try:
-                    # Most signatures: method(public_key) -> (ct, shared_secret)
                     ct, ss = method(receiver_public_key)
-                    self.shared_secret = ss
-                    # Derive AES key (32 bytes) from shared secret
-                    self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+                    self._post_handshake_as_client(receiver_public_key, ct, ss)
                     return ct, ss
                 except TypeError:
-                    # try next candidate if signature mismatch
                     continue
 
-        # Last attempt: try a plain 'encapsulate' call (let Python raise informative error if not supported)
-        try:
-            ct, ss = client_kem.encapsulate(receiver_public_key)
-            self.shared_secret = ss
-            self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
-            return ct, ss
-        except Exception as e:
-            raise RuntimeError(f"Failed to encapsulate (no matching method found): {e}")
+        # Last attempt: vanilla encapsulate
+        ct, ss = client_kem.encapsulate(receiver_public_key)
+        self._post_handshake_as_client(receiver_public_key, ct, ss)
+        return ct, ss
 
     # ---------------- Decapsulation (server/receiver) ----------------
     def decapsulate(self, kem_ciphertext: bytes) -> bytes:
         """
         Server-side: decapsulate ciphertext using the server's stored KEM instance.
-        Returns the shared secret and sets/derives AES key.
+        Returns the shared secret and derives directional AES keys + AAD.
         """
-        # Try common decap method names
         decap_candidates = ("decapsulate", "decap_secret", "decap", "decapsulate_secret")
         for name in decap_candidates:
             if hasattr(self.kem, name):
                 method = getattr(self.kem, name)
                 try:
                     ss = method(kem_ciphertext)
-                    self.shared_secret = ss
-                    self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+                    self._post_handshake_as_server(kem_ciphertext, ss)
                     return ss
                 except TypeError:
-                    # maybe signature expects (ct, sk_bytes) — try to export secret if available
                     try:
                         if hasattr(self.kem, "export_secret_key"):
                             sk_bytes = self.kem.export_secret_key()
                             ss = method(kem_ciphertext, sk_bytes)
-                            self.shared_secret = ss
-                            self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+                            self._post_handshake_as_server(kem_ciphertext, ss)
                             return ss
                     except Exception:
                         pass
                     continue
 
-        # fallback: try generic decapsulate
         if hasattr(self.kem, "decapsulate"):
             ss = self.kem.decapsulate(kem_ciphertext)
-            self.shared_secret = ss
-            self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+            self._post_handshake_as_server(kem_ciphertext, ss)
             return ss
 
         raise RuntimeError("No suitable decapsulation method found on oqs.KeyEncapsulation instance")
 
-    # ---------------- AES encrypt/decrypt ----------------
-    def encrypt(self, plaintext: bytes, aad: bytes = b"") -> Tuple[bytes, bytes]:
+    # ---------------- AES encrypt/decrypt (direction-aware) ----------------
+    def encrypt(self, plaintext: bytes, aad: Optional[bytes] = None) -> Tuple[bytes, bytes]:
         """
-        Encrypt plaintext with AES-256-GCM using derived AES key.
-        Returns (nonce, ciphertext) where ciphertext includes the tag (AESGCM.encrypt format).
+        Encrypt plaintext with AES-256-GCM using the OUTGOING directional key for this role.
+          - client role uses key_c2s
+          - server role uses key_s2c
+
+        Returns (nonce, ciphertext) where ciphertext includes the tag.
         """
-        if not self.aes_key:
-            raise ValueError("AES key not initialized. Perform key exchange first.")
-        res = encrypt_aes_gcm(plaintext, self.aes_key, associated_data=aad)
+        key = self._key_outgoing()
+        aad_bytes = aad if aad is not None else self._aad_required()
+        res = encrypt_aes_gcm(plaintext, key, associated_data=aad_bytes)
         return res["nonce"], res["ciphertext"]
 
-    def decrypt(self, nonce: bytes, ciphertext: bytes, aad: bytes = b"") -> bytes:
+    def decrypt(self, nonce: bytes, ciphertext: bytes, aad: Optional[bytes] = None) -> bytes:
         """
-        Decrypt AES-GCM ciphertext (ciphertext contains tag).
-        Returns plaintext bytes or raises on authentication failure.
+        Decrypt AES-GCM ciphertext using the INCOMING directional key for this role.
+          - client role uses key_s2c
+          - server role uses key_c2s
         """
-        if not self.aes_key:
-            raise ValueError("AES key not initialized. Perform key exchange first.")
-        return decrypt_aes_gcm(nonce, ciphertext, self.aes_key, associated_data=aad)
+        key = self._key_incoming()
+        aad_bytes = aad if aad is not None else self._aad_required()
+        return decrypt_aes_gcm(nonce, ciphertext, key, associated_data=aad_bytes)
+
+    # ---------------- Internals ----------------
+    def _post_handshake_as_client(self, server_pk: bytes, ct: bytes, ss: bytes) -> None:
+        """Store keys and AAD after client-side encapsulation."""
+        self.role = "client"
+        self.public_key = self.public_key or None  # client's own pk not used here
+        self.shared_secret = ss
+        # Back-compat single key (not used by new flows, but kept)
+        self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+
+        sched = QSMSKeySchedule.derive(server_pk, ct, ss)
+        self.key_c2s = sched.key_c2s
+        self.key_s2c = sched.key_s2c
+        self.aad = sched.aad
+
+    def _post_handshake_as_server(self, ct: bytes, ss: bytes) -> None:
+        """Store keys and AAD after server-side decapsulation."""
+        if not self.public_key:
+            raise ValueError("Server public_key not set; call generate_keys() first")
+        self.role = "server"
+        self.shared_secret = ss
+        # Back-compat single key
+        self.aes_key = derive_key_from_shared_secret(ss, info=b"qsms-aes-key")
+
+        sched = QSMSKeySchedule.derive(self.public_key, ct, ss)
+        self.key_c2s = sched.key_c2s
+        self.key_s2c = sched.key_s2c
+        self.aad = sched.aad
+
+    def _key_outgoing(self) -> bytes:
+        """Key to use when this side ENCRYPTS a message."""
+        if self.role == "client" and self.key_c2s:
+            return self.key_c2s
+        if self.role == "server" and self.key_s2c:
+            return self.key_s2c
+        # fallback for legacy behavior
+        if self.aes_key:
+            return self.aes_key
+        raise ValueError("No encryption key available (perform key exchange first).")
+
+    def _key_incoming(self) -> bytes:
+        """Key to use when this side DECRYPTS a message."""
+        if self.role == "client" and self.key_s2c:
+            return self.key_s2c
+        if self.role == "server" and self.key_c2s:
+            return self.key_c2s
+        # fallback for legacy behavior
+        if self.aes_key:
+            return self.aes_key
+        raise ValueError("No decryption key available (perform key exchange first).")
+
+    def _aad_required(self) -> bytes:
+        if self.aad is None:
+            raise ValueError("AAD not set — perform key exchange first.")
+        return self.aad
 
     # ---------------- cleanup ----------------
     def close(self) -> None:
@@ -226,27 +298,26 @@ class CryptoManager:
 
 # ---------------- Self-test ----------------
 if __name__ == "__main__":
-    print("[+] Testing CryptoManager...")
+    print("[+] Testing CryptoManager (directional keys)...")
 
-    # Receiver (Alice) - generates keys (public key returned; secret kept in alice.kem)
+    # Receiver (Alice / server)
     alice = CryptoManager()
     pk = alice.generate_keys()
 
-    # Sender (Bob) - encapsulates to Alice's public key
+    # Sender (Bob / client)
     bob = CryptoManager()
     kem_ct, ss1 = bob.encapsulate(pk)
 
     # Alice decapsulates
     ss2 = alice.decapsulate(kem_ct)
-
     print("Shared secrets equal?", ss1 == ss2)
 
-    # Bob encrypts (aes key derived inside bob during encapsulate)
-    nonce, ct = bob.encrypt(b"Quantum-safe message!", aad=b"demo")
+    # Bob -> Alice (client -> server) : bob encrypts with key_c2s, alice decrypts with key_c2s
+    n1, c1 = bob.encrypt(b"Hello from client!", aad=None)   # uses bob.aad by default
+    m1 = alice.decrypt(n1, c1, aad=None)
+    print("Alice got:", m1.decode())
 
-    # Alice decrypts (aes key derived inside alice during decapsulate)
-    try:
-        msg = alice.decrypt(nonce, ct, aad=b"demo")
-        print("Decrypted message:", msg.decode())
-    except Exception as e:
-        print("Decryption failed:", e)
+    # Alice -> Bob (server -> client)
+    n2, c2 = alice.encrypt(b"Hello from server!", aad=None)
+    m2 = bob.decrypt(n2, c2, aad=None)
+    print("Bob got:", m2.decode())
