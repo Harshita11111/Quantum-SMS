@@ -90,3 +90,6 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+from .db_config import engine
+print("Using DB:", engine.url)
