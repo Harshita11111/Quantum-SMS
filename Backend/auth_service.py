@@ -1,4 +1,5 @@
 # Backend/auth_service.py
+# Simple explanation: Handles sign up and login. When a user registers, we hash their password and create a Kyber keypair stored in KeyStorage. On login we verify password and return the user ID.
 
 from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash, check_password_hash

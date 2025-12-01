@@ -1,0 +1,12 @@
+cryptography
+pycryptodome
+tk
+pytest
+
+# If your Kyber implementation uses oqs / liboqs:
+pyoqs
+
+# If GUI uses PyQt instead of Tkinter:
+PyQt5
+
+# If you use sqlite (built-in, no need to install anything)

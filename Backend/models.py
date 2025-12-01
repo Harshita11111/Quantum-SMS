@@ -1,4 +1,7 @@
 # models.py
+
+# Simple explanation: Each class maps to a DB table. KeyStorage stores a user's public/private keys. Message stores hybrid-encrypted messages (KEM ciphertext + AES-GCM ciphertext).
+
 from sqlalchemy import Column, Integer, String, LargeBinary, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime

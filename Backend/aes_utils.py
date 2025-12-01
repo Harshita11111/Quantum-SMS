@@ -1,4 +1,12 @@
 # aes_utils.py
+# Simple explanation:
+
+# derive_key_from_shared_secret uses HKDF-SHA256 to get an AES key from the KEM shared secret.
+
+# Encryption uses AES-GCM (authenticated encryption): returns nonce and ciphertext (ciphertext includes tag).
+
+# Decryption verifies the tag and returns plaintext.
+
 import os
 from typing import Optional, Dict
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM

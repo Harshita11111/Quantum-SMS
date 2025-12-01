@@ -1,4 +1,5 @@
 # create_tables.py
+# Simple explanation: Calls Base.metadata.create_all(bind=engine) to create tables if missing.
 from .database import engine
 from .models import Base
 

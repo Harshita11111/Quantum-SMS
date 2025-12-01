@@ -130,8 +130,13 @@ class QSMSClient:
         ct = body[2 + nlen :]
         return self.crypto.decrypt(nonce, ct, aad=None)
 
-    def send_text(self, txt: str):
+    def send_text(self, txt: str, *, from_id: Optional[str] = None, to_id: Optional[str] = None):
         payload = txt.encode("utf-8")
+        meta = {"ts": None}
+        if from_id:
+            meta["from"] = from_id
+        if to_id:
+            meta["to"] = to_id
         msg = Message(
             header=MessageHeader.new(
                 MessageType.TEXT,
@@ -139,9 +144,10 @@ class QSMSClient:
                 meta_len=0,
             ),
             payload=payload,
-            meta={"ts": None},
+            meta=meta,
         )
         self._send_encrypted(msg.to_bytes())
+
 
     def recv_message(self):
         try:
