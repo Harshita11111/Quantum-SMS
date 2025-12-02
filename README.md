@@ -17,3 +17,166 @@
 
 </p>
 
+                     ┌──────────────────────────┐
+                     │        Tkinter UI        │
+                     │  (Login / Register /Chat)│
+                     └──────────────┬───────────┘
+                                    │
+                                    ▼
+                       ┌────────────────────┐
+                       │    QSMS Client     │
+                       │(connect/auth/kex)  │
+                       └──────────┬─────────┘
+                                  │Encrypted Socket
+                                  ▼
+                   ┌─────────────────────────────────┐
+                   │          QSMS Server            │
+                   │  Asyncio · Auth · KEX · Router  │
+                   └───────────┬───────────┬────────┘
+                               │           │
+                          Auth Service   Message Router
+                               │           │
+                               ▼           ▼
+                        ┌────────────────────────┐
+                        │        MySQL DB        │
+                        │  users · hashes · meta │
+                        └────────────────────────┘
+
+
+Client                                   Server
+  |                                         |
+  |----------- Connect to server ---------->|
+  |                                         |
+  |--- Request Auth(username,password) ---->|
+  |                                         |
+  |<-------- Auth Success / Fail -----------|
+  |
+  |******** POST-QUANTUM KEY EXCHANGE ********|
+  |
+  |<----- Server sends Kyber Public Key -----|
+  |
+  |-- Encapsulate(pub) → ct, shared_secret -->|
+  |                                         |
+  |<-- Decapsulate(ct) → shared_secret ------|
+  |
+  | Both sides derive: AES-256-GCM session key
+  |
+  |******** ENCRYPTED CHAT BEGINS ********|
+  |
+  |-- AES-GCM(ciphertext + tag + nonce) --->|
+  |                                         |
+  |<-- AES-GCM(ciphertext + tag + nonce) ----|
+
+
+
+┌────────────┐
+│  Login UI  │
+└─────┬──────┘
+      │ username+password
+      ▼
+┌────────────┐
+│  Auth API  │
+└─────┬──────┘
+      │ success
+      ▼
+┌──────────────────────┐
+│ PQ Key Exchange (KEM)│
+└─────┬────────────────┘
+      │ AES key derived
+      ▼
+┌───────────────┐
+│ Chat Window UI│
+└─────┬─────────┘
+      │ encrypted messages
+      ▼
+┌───────────────┐
+│ QSMS Server   │
+└───────────────┘
+
+
+Login Window
+     │
+     ▼
+Register (optional)
+     │
+     ▼
+Chat Window
+     │
+     ▼
+Encrypted Messages
+
+
+## 🧩 Technology Stack
+
+| Layer | Technology |
+|------|------------|
+| **Frontend (GUI)** | Tkinter |
+| **Backend API** | Python + AsyncIO |
+| **Database** | MySQL + SQLAlchemy ORM |
+| **Encryption** | AES-256-GCM |
+| **Post-Quantum KEM** | Kyber512 (liboqs) / Mock-KEM fallback |
+| **Messaging Protocol** | Custom binary protocol |
+| **Networking** | TCP sockets |
+
+
+# -------------------------------------------------------
+# 1) Create & Activate Virtual Environment
+# -------------------------------------------------------
+python -m venv .venv
+source .venv/Scripts/activate      # Windows (Git Bash)
+# OR
+source .venv/bin/activate          # Linux / macOS
+
+# -------------------------------------------------------
+# 2) Upgrade pip
+# -------------------------------------------------------
+pip install --upgrade pip
+
+# -------------------------------------------------------
+# 3) Install Core Requirements
+# -------------------------------------------------------
+pip install sqlalchemy
+pip install pymysql
+pip install python-dotenv
+pip install cryptography
+pip install pycryptodome
+pip install pillow
+
+# -------------------------------------------------------
+# 4) Install Async Server + GUI Dependencies
+# -------------------------------------------------------
+pip install aiohttp
+pip install websockets
+pip install tkintertable   # optional (Tkinter helper libs)
+
+# -------------------------------------------------------
+# 5) Install liboqs (optional PQC backend)
+# -------------------------------------------------------
+pip install pyoqs || echo "Skipping pyoqs (optional for PQC)"
+
+# -------------------------------------------------------
+# 6) Install Testing Tools
+# -------------------------------------------------------
+pip install pytest
+pip install pytest-asyncio
+
+# -------------------------------------------------------
+# 7) For Windows Tcl/Tk Fix (if required)
+# -------------------------------------------------------
+# Only run this if Tkinter errors appear:
+# Copy Tcl/Tk paths into environment variables
+export TCL_LIBRARY="/c/Users/$USERNAME/AppData/Local/Programs/Python/Python310/tcl/tcl8.6"
+export TK_LIBRARY="/c/Users/$USERNAME/AppData/Local/Programs/Python/Python310/tcl/tk8.6"
+
+# -------------------------------------------------------
+# 8) Verify Installation
+# -------------------------------------------------------
+python - << "EOF"
+import sqlalchemy, pymysql, tkinter, cryptography
+print("SQLAlchemy:", sqlalchemy.__version__)
+print("PyMySQL OK")
+print("Tkinter OK")
+print("Crypto OK")
+EOF
+
+
