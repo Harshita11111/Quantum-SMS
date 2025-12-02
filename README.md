@@ -17,7 +17,7 @@
 
 </p>
 
-```bash              ┌──────────────────────────┐
+                     ┌──────────────────────────┐
                      │        Tkinter UI        │
                      │  (Login / Register /Chat)│
                      └──────────────┬───────────┘
@@ -44,7 +44,7 @@
 
 
                          ┌──────────────────────────────┐
-                         │        Client Startup         │
+                         │        Client Startup        │
                          └──────────────┬───────────────┘
                                         │
                                         ▼
@@ -60,41 +60,40 @@
                              Server validates credentials
                                         │
                           ┌─────────────┴──────────────┐
-                          │ Auth Success                │
-                          │ Auth Failed → Error popup   │
+                          │ Auth Success               │
+                          │ Auth Failed → Error popup  │
                           └─────────────┬──────────────┘
                                         │
                                         ▼
                      ┌───────────────────────────────────────────┐
-                     │     2. Post-Quantum Key Exchange (KEM)     │
+                     │     2. Post-Quantum Key Exchange (KEM)    │
                      └───────────────────────────────────────────┘
                                         │
             ┌──────────────────────────────────────────────────────────────────┐
-            │  Server → sends Kyber (or MockKEM) Public Key (pk)              │
-            │  Client → Encapsulate(pk) → ciphertext(ct), shared_secret(ss)   │
-            │  Server → Decapsulate(ct) → shared_secret(ss₂)                  │
-            │  Both sides: derive AES-256-GCM key from shared_secret          │
+            │  Server → sends Kyber (or MockKEM) Public Key (pk)               │
+            │  Client → Encapsulate(pk) → ciphertext(ct), shared_secret(ss)    │
+            │  Server → Decapsulate(ct) → shared_secret(ss₂)                   │
+            │  Both sides: derive AES-256-GCM key from shared_secret           │
             └──────────────────────────────────────────────────────────────────┘
                                         │
                                         ▼
                     ┌──────────────────────────────────────────────┐
-                    │     3. Secure Messaging (AES-256-GCM)         │
+                    │     3. Secure Messaging (AES-256-GCM)        │
                     └──────────────────────────────────────────────┘
                                         │
                 ┌─────────────────────────────────────────────────────────┐
-                │ Client encrypts: AES-GCM(plaintext → ciphertext + tag) │
-                │ Server decrypts: AES-GCM(nonce, ciphertext, tag)       │
-                │ All chat messages → fully encrypted end-to-end         │
+                │ Client encrypts: AES-GCM(plaintext → ciphertext + tag)  │
+                │ Server decrypts: AES-GCM(nonce, ciphertext, tag)        │
+                │ All chat messages → fully encrypted end-to-end          │
                 └─────────────────────────────────────────────────────────┘
                                         │
                                         ▼
   ┌───────────────────┐       ┌───────────────────┐       ┌─────────────────────┐
-  │    Login Window    │─────▶│   Chat Window UI  │─────▶│  Encrypted Messages │
+  │    Login Window   │─────▶│   Chat Window UI  │─────▶ │  Encrypted Messages │
   └───────────────────┘       └───────────────────┘       └─────────────────────┘
                  ▲                        │
                  │                        ▼
         (Optional Register)        QSMS Python Server
-```
 
 ``` bash
 ┌────────────┐
