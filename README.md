@@ -43,30 +43,57 @@
                         └────────────────────────┘
 
 
-Client                                   Server
-  |                                         |
-  |----------- Connect to server ---------->|
-  |                                         |
-  |--- Request Auth(username,password) ---->|
-  |                                         |
-  |<-------- Auth Success / Fail -----------|
-  |
-  |******** POST-QUANTUM KEY EXCHANGE ********|
-  |
-  |<----- Server sends Kyber Public Key -----|
-  |
-  |-- Encapsulate(pub) → ct, shared_secret -->|
-  |                                         |
-  |<-- Decapsulate(ct) → shared_secret ------|
-  |
-  | Both sides derive: AES-256-GCM session key
-  |
-  |******** ENCRYPTED CHAT BEGINS ********|
-  |
-  |-- AES-GCM(ciphertext + tag + nonce) --->|
-  |                                         |
-  |<-- AES-GCM(ciphertext + tag + nonce) ----|
-
+                         ┌──────────────────────────────┐
+                         │        Client Startup         │
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+                          Connect to QSMS Server (127.0.0.1:5000)
+                                        │
+                                        ▼
+                         ┌────────────────────────────────────────┐
+                         │      1. Authentication (Username/Pass) │
+                         └────────────────────────────────────────┘
+                                        │
+                                        │  Login UI → sends {username, password}
+                                        ▼
+                             Server validates credentials
+                                        │
+                          ┌─────────────┴──────────────┐
+                          │ Auth Success                │
+                          │ Auth Failed → Error popup   │
+                          └─────────────┬──────────────┘
+                                        │
+                                        ▼
+                     ┌───────────────────────────────────────────┐
+                     │     2. Post-Quantum Key Exchange (KEM)     │
+                     └───────────────────────────────────────────┘
+                                        │
+            ┌──────────────────────────────────────────────────────────────────┐
+            │  Server → sends Kyber (or MockKEM) Public Key (pk)              │
+            │  Client → Encapsulate(pk) → ciphertext(ct), shared_secret(ss)   │
+            │  Server → Decapsulate(ct) → shared_secret(ss₂)                  │
+            │  Both sides: derive AES-256-GCM key from shared_secret          │
+            └──────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                    ┌──────────────────────────────────────────────┐
+                    │     3. Secure Messaging (AES-256-GCM)         │
+                    └──────────────────────────────────────────────┘
+                                        │
+                ┌─────────────────────────────────────────────────────────┐
+                │ Client encrypts: AES-GCM(plaintext → ciphertext + tag) │
+                │ Server decrypts: AES-GCM(nonce, ciphertext, tag)       │
+                │ All chat messages → fully encrypted end-to-end         │
+                └─────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+  ┌───────────────────┐       ┌───────────────────┐       ┌─────────────────────┐
+  │    Login Window    │─────▶│   Chat Window UI  │─────▶│  Encrypted Messages │
+  └───────────────────┘       └───────────────────┘       └─────────────────────┘
+                 ▲                        │
+                 │                        ▼
+        (Optional Register)        QSMS Python Server
 
 
 ┌────────────┐
