@@ -169,7 +169,7 @@ pip install pytest-asyncio
 ```
 # -------------------------------------------------------
 
-# 8) Verify Installation
+# 7) Verify Installation
 # -------------------------------------------------------
 ```bash
 python - << "EOF"
