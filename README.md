@@ -95,7 +95,7 @@
                  │                        ▼
         (Optional Register)        QSMS Python Server
 
-
+``` bash
 ┌────────────┐
 │  Login UI  │
 └─────┬──────┘
@@ -131,7 +131,7 @@ Chat Window
      │
      ▼
 Encrypted Messages
-
+```
 
 ## 🧩 Technology Stack
 
