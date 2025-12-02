@@ -4,7 +4,7 @@ tk
 pytest
 
 # If your Kyber implementation uses oqs / liboqs:
-pyoqs
+# pyoqs
 
 # If GUI uses PyQt instead of Tkinter:
 PyQt5

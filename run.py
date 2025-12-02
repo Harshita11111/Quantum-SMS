@@ -55,12 +55,53 @@ def start_qsms_server(host="127.0.0.1", port=5000):
 def start_frontend():
     print("[FRONTEND] Launching Login GUI...")
     try:
+        # import the login launcher and the ChatWindow class directly
         from frontend.login_gui import start_login_window
-        from frontend.chat_gui import start_chat
-        start_login_window(on_login=start_chat)
+        # import ChatWindow class (safer than relying on start_chat signature)
+        from frontend.chat_gui import ChatWindow
+
+        # wrapper accepts any args/kwargs the login GUI might call with
+        def launch_chat(*args, **kwargs):
+            """
+            Accepts either:
+              launch_chat(username, password)
+            or
+              launch_chat(user=username, password=password)
+            or any other signature the login GUI uses.
+            Extracts the first two positional args if present, otherwise tries keywords.
+            """
+            username = None
+            password = None
+
+            # positional args preferred
+            if len(args) >= 1:
+                username = args[0]
+            if len(args) >= 2:
+                password = args[1]
+
+            # fallback to kwargs
+            if username is None:
+                username = kwargs.get("username") or kwargs.get("user") or kwargs.get("uname")
+            if password is None:
+                password = kwargs.get("password") or kwargs.get("pw") or kwargs.get("pass")
+
+            if not username or not password:
+                # if login_gui only passes a single object (e.g. a user object),
+                # you can adapt this section to extract username/password fields.
+                raise TypeError("launch_chat requires username and password (could not extract them).")
+
+            # ChatWindow must run on the main thread because Tkinter requires it.
+            # So we call it directly (do not spawn a new thread).
+            ChatWindow(username, password)
+
+        # give the wrapper to the login GUI
+        start_login_window(on_login=launch_chat)
+
     except Exception as e:
         print("[FRONTEND ERROR]", e)
+        import traceback
         traceback.print_exc()
+
 
 def main():
     print("====================================")
