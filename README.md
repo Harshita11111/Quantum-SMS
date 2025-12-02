@@ -131,36 +131,42 @@ source .venv/Scripts/activate      # Windows (Git Bash)
 # -------------------------------------------------------
 # 2) Upgrade pip
 # -------------------------------------------------------
+```bash
 pip install --upgrade pip
+```
 
 # -------------------------------------------------------
 # 3) Install Core Requirements
 # -------------------------------------------------------
+```bash
 pip install sqlalchemy
 pip install pymysql
 pip install python-dotenv
 pip install cryptography
 pip install pycryptodome
 pip install pillow
-
+```
 # -------------------------------------------------------
 # 4) Install Async Server + GUI Dependencies
 # -------------------------------------------------------
+```bash
 pip install aiohttp
 pip install websockets
 pip install tkintertable   # optional (Tkinter helper libs)
-
+```
 # -------------------------------------------------------
 # 5) Install liboqs (optional PQC backend)
 # -------------------------------------------------------
+```bash
 pip install pyoqs || echo "Skipping pyoqs (optional for PQC)"
-
+```
 # -------------------------------------------------------
 # 6) Install Testing Tools
 # -------------------------------------------------------
+```bash
 pip install pytest
 pip install pytest-asyncio
-
+```
 # -------------------------------------------------------
 # 7) For Windows Tcl/Tk Fix (if required)
 # -------------------------------------------------------
@@ -172,6 +178,7 @@ export TK_LIBRARY="/c/Users/$USERNAME/AppData/Local/Programs/Python/Python310/tc
 # -------------------------------------------------------
 # 8) Verify Installation
 # -------------------------------------------------------
+```bash
 python - << "EOF"
 import sqlalchemy, pymysql, tkinter, cryptography
 print("SQLAlchemy:", sqlalchemy.__version__)
@@ -179,5 +186,5 @@ print("PyMySQL OK")
 print("Tkinter OK")
 print("Crypto OK")
 EOF
-
+```
 
