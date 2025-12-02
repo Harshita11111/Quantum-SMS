@@ -17,7 +17,7 @@
 
 </p>
 
-                     ┌──────────────────────────┐
+```bash              ┌──────────────────────────┐
                      │        Tkinter UI        │
                      │  (Login / Register /Chat)│
                      └──────────────┬───────────┘
@@ -94,6 +94,7 @@
                  ▲                        │
                  │                        ▼
         (Optional Register)        QSMS Python Server
+```
 
 ``` bash
 ┌────────────┐
