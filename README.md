@@ -122,10 +122,11 @@ Encrypted Messages
 # -------------------------------------------------------
 # 1) Create & Activate Virtual Environment
 # -------------------------------------------------------
+
+```bash
 python -m venv .venv
 source .venv/Scripts/activate      # Windows (Git Bash)
-# OR
-source .venv/bin/activate          # Linux / macOS
+```         
 
 # -------------------------------------------------------
 # 2) Upgrade pip
