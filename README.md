@@ -168,14 +168,7 @@ pip install pytest
 pip install pytest-asyncio
 ```
 # -------------------------------------------------------
-# 7) For Windows Tcl/Tk Fix (if required)
-# -------------------------------------------------------
-# Only run this if Tkinter errors appear:
-# Copy Tcl/Tk paths into environment variables
-export TCL_LIBRARY="/c/Users/$USERNAME/AppData/Local/Programs/Python/Python310/tcl/tcl8.6"
-export TK_LIBRARY="/c/Users/$USERNAME/AppData/Local/Programs/Python/Python310/tcl/tk8.6"
 
-# -------------------------------------------------------
 # 8) Verify Installation
 # -------------------------------------------------------
 ```bash
