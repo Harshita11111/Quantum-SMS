@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from hashlib import pbkdf2_hmac, sha256
 from typing import Dict, Optional, Tuple
 
-# ✅ FIXED: use package-relative import so `python -m qsms.network.connection_handler` works
+
 from .message_protocol import Message, MessageHeader, MessageType
 
 # ----------------------------- helpers ---------------------------------

@@ -220,12 +220,7 @@ if __name__ == "__main__":
     """
     Quick manual smoke-test:
 
-    1) Run the server:
-          python -m qsms.network.server
-       Make sure the user exists and can authenticate on the server.
-
-    2) Run this file directly to connect, login, and print inbound messages:
-          python frontend_utils.py
+   
     """
     import sys
 

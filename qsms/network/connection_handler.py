@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Callable, Awaitable
 
-# ✅ package-relative imports so `python -m qsms.network.connection_handler` works
+
 from .message_protocol import Message, MessageHeader, MessageType
 from .auth_protocol import AuthServer, AuthStage, is_auth_message
 from ..crypto_manager import CryptoManager

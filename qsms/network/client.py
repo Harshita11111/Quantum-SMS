@@ -288,13 +288,7 @@ if __name__ == "__main__":
     """
     Demo client.
 
-    1) Run the server from project root:
 
-        python -m qsms.network.server
-
-    2) Then start this client:
-
-        python -m qsms.network.client
     """
     c = QSMSClient(host="127.0.0.1", port=5000)
     try:

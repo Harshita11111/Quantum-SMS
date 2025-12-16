@@ -171,3 +171,37 @@ class DBUserStore:
                 return False
             s.delete(u)
             return True
+
+
+from .db_config import session_scope
+from .models import User, AuthAudit
+
+
+def list_all_users():
+    """Return a list of all usernames stored in the database."""
+    with session_scope() as s:
+        users = s.query(User).order_by(User.id).all()
+        return [u.username for u in users]
+
+
+def list_successful_logins():
+    """Return a list of usernames that have logged in successfully at least once."""
+    with session_scope() as s:
+        rows = (
+            s.query(AuthAudit.username)
+             .filter(AuthAudit.ok == True)
+             .distinct()
+             .all()
+        )
+        return [r.username for r in rows]
+
+
+if __name__ == "__main__":
+    # Small demo: print all users and all users with successful logins
+    print("All users in DB:")
+    for u in list_all_users():
+        print(" -", u)
+
+    print("\nUsers who have logged in successfully at least once:")
+    for u in list_successful_logins():
+        print(" -", u)
