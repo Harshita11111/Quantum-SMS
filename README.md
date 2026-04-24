@@ -1,2 +1,2 @@
 # Quantum-SMS
-branch AV is the main repository
+goto branch-HS for project 
